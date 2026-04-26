@@ -5,11 +5,13 @@ import { detectAnomaly } from '../anomaly/anomaly.service.js';
 import { emitAnomalyDetected, emitTelemetryUpdate } from '../../infra/socket/io.js';
 import { pushAlertJob, pushStellarAnchorJob } from '../../infra/redis/queue.js';
 import type { IotWebhookBody } from './iot.validation.js';
+import type { TelemetryUpdatePayload, AnomalyAlertPayload } from '../../shared/types/socketEvents.js';
 
 export async function processIotWebhook(body: IotWebhookBody) {
   const dataHash = generateDataHash(body);
 
   const telemetry = await createTelemetryRecord({
+    sensorId: body.sensorId,
     shipmentId: body.shipmentId,
     temperature: body.temperature,
     humidity: body.humidity,
@@ -28,7 +30,23 @@ export async function processIotWebhook(body: IotWebhookBody) {
     dataHash,
   });
 
-  emitTelemetryUpdate(body.shipmentId, telemetry);
+  // Format telemetry payload for socket emission
+  const telemetryPayload: TelemetryUpdatePayload = {
+    telemetryId: telemetry._id.toString(),
+    shipmentId: telemetry.shipmentId.toString(),
+    sensorId: telemetry.sensorId,
+    temperature: telemetry.temperature,
+    humidity: telemetry.humidity,
+    latitude: telemetry.latitude,
+    longitude: telemetry.longitude,
+    batteryLevel: telemetry.batteryLevel,
+    timestamp: telemetry.timestamp.toISOString(),
+    dataHash: telemetry.dataHash,
+    anchorStatus: telemetry.anchorStatus as 'PENDING_ANCHOR' | 'ANCHORED' | 'ANCHOR_FAILED',
+    ...(telemetry.stellarTxHash && { stellarTxHash: telemetry.stellarTxHash }),
+  };
+
+  emitTelemetryUpdate(body.shipmentId, telemetryPayload);
 
   setImmediate(async () => {
     const result = await detectAnomaly({
@@ -43,7 +61,18 @@ export async function processIotWebhook(body: IotWebhookBody) {
     if (result.detected) {
       await Promise.all(
         result.anomalies.map(async anomaly => {
-          emitAnomalyDetected(anomaly.shipmentId, anomaly);
+          // Format anomaly payload for socket emission
+          const anomalyPayload: AnomalyAlertPayload = {
+            anomalyId: anomaly._id,
+            shipmentId: anomaly.shipmentId,
+            type: anomaly.type as 'TEMPERATURE_EXCEEDED' | 'TEMPERATURE_BELOW_MIN' | 'HUMIDITY_EXCEEDED' | 'HUMIDITY_BELOW_MIN' | 'BATTERY_LOW',
+            severity: anomaly.severity as 'LOW' | 'MEDIUM' | 'HIGH',
+            message: anomaly.message,
+            timestamp: anomaly.timestamp,
+            resolved: anomaly.resolved,
+          };
+
+          emitAnomalyDetected(anomaly.shipmentId, anomalyPayload);
           await pushAlertJob({
             shipmentId: anomaly.shipmentId,
             type: anomaly.type,
