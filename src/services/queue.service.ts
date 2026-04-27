@@ -1,6 +1,12 @@
 import { Queue } from 'bullmq';
 import { redisConnection } from '../infra/redis/connection.js';
 
+export interface AlertPayload {
+  type: 'ANOMALY' | 'STATUS_CHANGE';
+  message: string;
+  shipmentId: string;
+}
+
 const transactionQueue = new Queue('transaction_queue', {
   connection: redisConnection as unknown as Record<string, unknown>,
 });

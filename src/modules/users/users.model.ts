@@ -33,6 +33,7 @@ const UserSchema = new mongoose.Schema(
     role: { type: String, enum: Object.values(UserRole), required: true },
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
     walletAddress: { type: String, required: false },
+    deletedAt: { type: Date, default: null },
   },
   {
     timestamps: true,
@@ -55,6 +56,22 @@ UserSchema.pre('save', async function (next) {
     this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
   }
   next();
+});
+
+// Override toJSON to hide passwordHash
+UserSchema.methods.toJSON = function () {
+  const obj = this.toObject();
+  delete obj.passwordHash;
+  return obj;
+};
+
+// Soft delete middleware
+UserSchema.pre(['find', 'findOne', 'findOneAndUpdate', 'countDocuments'], function () {
+  this.where({ deletedAt: null });
+});
+
+UserSchema.pre('aggregate', function () {
+  this.pipeline().unshift({ $match: { deletedAt: null } });
 });
 
 export type Organization = InferSchemaType<typeof OrganizationSchema> & {

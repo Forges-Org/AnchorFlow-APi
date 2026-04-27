@@ -5,6 +5,7 @@ import type { Application } from 'express';
 
 type TelemetryCreateResult = {
   _id: string;
+  sensorId?: string;
   sensorId: string;
   shipmentId: string;
   temperature: number;
@@ -48,11 +49,13 @@ describe('POST /api/webhooks/iot', () => {
 
   const dataHash = generateDataHash(parsedBodyForHash);
   const resolvedShipmentId = 'shipment-123';
+  const resolvedShipmentId = '507f1f77bcf86cd799439011';
 
   let app: Application;
   const mockTelemetryCreate = jest.fn<(payload: unknown) => Promise<TelemetryCreateResult>>();
   const mockValidateApiKey = jest.fn<(rawApiKey: string) => Promise<ValidateApiKeyResult>>();
   const mockFindActiveShipmentBySensorId = jest.fn<(sensorId: string) => Promise<any>>();
+  const mockFindActiveShipmentBySensorId = jest.fn<(sensorId: string) => Promise<{ _id: string; status: string } | null>>();
   const mockPushStellarAnchorJob = jest.fn<
     (payload: { telemetryId: string; shipmentId: string; dataHash: string }) => Promise<void>
   >();
@@ -69,6 +72,9 @@ describe('POST /api/webhooks/iot', () => {
       shipmentId: body.shipmentId,
       temperature: body.temperature,
       humidity: body.humidity,
+      latitude: body.location.lat,
+      longitude: body.location.lng,
+      batteryLevel: 100,
       latitude: body.latitude,
       longitude: body.longitude,
       batteryLevel: body.batteryLevel,
