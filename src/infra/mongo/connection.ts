@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { env } from '../../env.js';
+import { logger } from '../../shared/logger/logger.js';
 
 let testMongoServer: import('mongodb-memory-server').MongoMemoryServer | null = null;
 
@@ -11,7 +12,7 @@ export async function connectMongo(mongoUri: string) {
   } else {
     await mongoose.connect(mongoUri);
   }
-  console.log('MongoDB connected');
+  logger.info('MongoDB connected');
 }
 
 export async function disconnectMongo() {

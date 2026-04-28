@@ -2,7 +2,8 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { AppError } from '../../shared/http/errors.js';
 import { env } from '../../env.js';
-import { UserModel, UserRole } from '../users/users.model.js';
+import { UserModel } from '../users/users.model.js';
+import { UserRole } from '../../shared/types/user.js';
 import type { SignupInput, LoginInput } from './auth.validation.js';
 
 export interface TokenPayload {
