@@ -300,4 +300,65 @@ describe('Shipments API (mocked DB)', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.trackingNumber).toBe('TN-NEW-1');
   });
+  // --- New Tests for Unauthorized Route Access---
+
+  it('should return 401 when trying to update a shipment (PATCH /:id) without a token', async () => {
+    const res = await request(app)
+      .patch('/api/shipments/123')
+      .send({ destination: 'New City' });
+    expect(res.status).toBe(401);
+  });
+
+  it('should return 403 when trying to update a shipment (PATCH /:id) as a VIEWER', async () => {
+    const users = await import('../src/modules/users/users.model.js');
+    const user = await users.UserModel.create({
+      email: 'viewer_patch@example.com',
+      name: 'Viewer',
+      passwordHash: 'password',
+      role: 'VIEWER',
+      organizationId: 'org1',
+      walletAddress: '0xABC123',
+    });
+
+    const tokenPayload = { userId: String(user._id), role: user.role };
+    const { default: { sign } } = await import('jsonwebtoken');
+    const token = sign(tokenPayload, process.env.JWT_SECRET!);
+
+    const res = await request(app)
+      .patch('/api/shipments/123')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ destination: 'New City' });
+    
+    expect(res.status).toBe(403);
+  });
+
+  it('should return 401 when trying to upload proof (POST /:id/proof) without a token', async () => {
+    const res = await request(app)
+      .post('/api/shipments/123/proof')
+      .send({ proofData: 'some_base64_string' });
+    expect(res.status).toBe(401);
+  });
+
+  it('should return 403 when trying to upload proof (POST /:id/proof) as a VIEWER', async () => {
+    const users = await import('../src/modules/users/users.model.js');
+    const user = await users.UserModel.create({
+      email: 'viewer_proof@example.com',
+      name: 'Viewer',
+      passwordHash: 'password',
+      role: 'VIEWER',
+      organizationId: 'org1',
+      walletAddress: '0xABC123',
+    });
+
+    const tokenPayload = { userId: String(user._id), role: user.role };
+    const { default: { sign } } = await import('jsonwebtoken');
+    const token = sign(tokenPayload, process.env.JWT_SECRET!);
+
+    const res = await request(app)
+      .post('/api/shipments/123/proof')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ proofData: 'some_base64_string' });
+    
+    expect(res.status).toBe(403);
+  });
 });
