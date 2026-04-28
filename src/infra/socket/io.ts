@@ -1,6 +1,7 @@
 import { Server as HttpServer } from 'http';
 import { Server } from 'socket.io';
 
+import { config } from '../../config/index.js';
 import { socketAuth } from '../../shared/middleware/socketAuth.js';
 import {
   joinShipmentRoom,
@@ -24,8 +25,14 @@ export function getActiveUsers(): ReadonlyMap<string, string> {
 }
 
 export function initSocketIO(httpServer: HttpServer): Server {
+  const allowedOrigins = config.allowedOrigins;
+
   io = new Server(httpServer, {
-    cors: { origin: '*' },
+    cors: {
+      origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
   });
 
   io.use(socketAuth);
