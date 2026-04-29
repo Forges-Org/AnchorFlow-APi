@@ -3,11 +3,13 @@ import bcrypt from 'bcrypt';
 import { ApiKeyModel } from './apiKey.model.js';
 import type { IApiKey } from '../../shared/types/apiKey.js';
 import { AppError } from '../../shared/http/errors.js';
+import { auditLog } from '../../shared/utils/auditLog.js';
 
 interface CreateApiKeyParams {
   name: string;
   organizationId: string;
   shipmentId?: string;
+  createdBy?: string;
 }
 
 interface CreateApiKeyResult {
@@ -34,6 +36,16 @@ export async function generateApiKey(params: CreateApiKeyParams): Promise<Create
     shipmentId: params.shipmentId,
     isActive: true,
   });
+
+  if (params.createdBy) {
+    auditLog({
+      userId: params.createdBy,
+      action: 'API_KEY_GENERATED',
+      resourceId: apiKeyDoc._id.toString(),
+      timestamp: apiKeyDoc.createdAt,
+      metadata: { organizationId: params.organizationId, name: params.name },
+    });
+  }
 
   // Return the raw API key only once - it will never be shown again
   return {

@@ -5,6 +5,7 @@ import { mockUploadToStorage } from '../../services/mockStorageService.js';
 import { UserModel } from '../users/users.model.js';
 import { emitStatusUpdate } from '../../infra/socket/io.js';
 import { IShipment, ShipmentStatus } from '../../shared/types/shipment.js';
+import { auditLog } from '../../shared/utils/auditLog.js';
 
 type ShipmentListResult = {
   data: IShipment[];
@@ -86,6 +87,7 @@ export const updateShipmentStatusService = async (
     throw new Error('Invalid status');
   }
 
+  const previousStatus = shipment.status;
   shipment.status = status;
 
   const milestone = {
@@ -129,6 +131,16 @@ export const updateShipmentStatusService = async (
   shipment.milestones.push(milestone);
 
   await shipment.save();
+
+  if (actor?.userId) {
+    auditLog({
+      userId: actor.userId,
+      action: 'SHIPMENT_STATUS_CHANGED',
+      resourceId: id,
+      timestamp: new Date(),
+      metadata: { previousStatus, newStatus: status },
+    });
+  }
 
   emitStatusUpdate(id, {
     shipmentId: id,
