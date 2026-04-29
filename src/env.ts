@@ -29,12 +29,23 @@ const EnvSchema = z.object({
 const parsedEnv = EnvSchema.safeParse(process.env);
 
 if (!parsedEnv.success) {
+<<<<<<< quality/environment-variable-validation
+  const errors = parsedEnv.error.issues
+    .map(issue => {
+      const key = issue.path.join('.') || 'ENV';
+      return `- ${key}: ${issue.message}`;
+    })
+    .join('\n');
+
+  throw new Error(`❌ Invalid environment variables:\n${errors}`);
+=======
   logger.error('Invalid environment variables');
   for (const issue of parsedEnv.error.issues) {
     const key = issue.path.join('.') || 'ENV';
     logger.error({ key }, issue.message);
   }
   process.exit(1);
+>>>>>>> main
 }
 
 export const env = parsedEnv.data;

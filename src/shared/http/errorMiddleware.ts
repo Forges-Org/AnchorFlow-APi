@@ -5,7 +5,7 @@ import { AppError, ErrorCodes } from './errors.js';
 
 export function errorMiddleware(): ErrorRequestHandler {
   return (err, _req, res, _next) => {
-    const isDev = (process.env.NODE_ENV || 'development') !== 'production';
+    const isDev = process.env.NODE_ENV !== 'production';
 
     // Helper to keep the payload consistent
     const respond = (

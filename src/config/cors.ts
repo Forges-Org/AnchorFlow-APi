@@ -1,16 +1,13 @@
 import cors, { type CorsOptionsDelegate } from 'cors';
 import type { Request } from 'express';
 
-function isAllowedOrigin(origin: string, allowedOrigins: readonly string[]): boolean {
+function isAllowedOrigin(origin: string, allowedOrigins: string[]): boolean {
   return allowedOrigins.includes(origin);
 }
 
 function getAllowedOrigins(): string[] {
   const raw = process.env.ALLOWED_ORIGINS ?? '';
-  return raw
-    .split(',')
-    .map(origin => origin.trim())
-    .filter(Boolean);
+  return raw.split(',').map(o => o.trim()).filter(Boolean);
 }
 
 const corsOptionsDelegate: CorsOptionsDelegate<Request> = (req, callback) => {
