@@ -78,6 +78,17 @@ export function getIO(): Server {
   return io;
 }
 
+export function closeSocketIO(): Promise<void> {
+  return new Promise(resolve => {
+    if (io) {
+      io.close(() => resolve());
+      io = null;
+    } else {
+      resolve();
+    }
+  });
+}
+
 export function emitAnomalyDetected(shipmentId: string, anomaly: AnomalyAlertPayload) {
   getIO().to(shipmentRoomName(shipmentId)).emit('anomaly_detected', anomaly);
 }

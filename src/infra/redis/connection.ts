@@ -32,3 +32,10 @@ export function getRedisClient(): Redis {
 }
 
 export const redisConnection = getRedisClient();
+
+export async function disconnectRedis(): Promise<void> {
+  if (redisClient) {
+    await (redisClient as import('ioredis').Redis).quit();
+    redisClient = null;
+  }
+}

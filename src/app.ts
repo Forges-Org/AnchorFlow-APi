@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { fileURLToPath } from 'node:url';
+import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 
@@ -31,6 +32,7 @@ export function buildApp() {
   // Enable weak ETags globally for client-side caching (Issue #80)
   app.set('etag', 'weak');
 
+  app.use(helmet());
   app.use(requestId());
   app.use(corsMiddleware);
   app.options('*', corsPreflight);
