@@ -1,31 +1,31 @@
 import { generateDataHash } from '../../shared/utils/crypto.js';
-import { createTelemetryRecord, findActiveShipmentBySensorId } from '../telemetry/telemetry.service.js';
-import { AppError } from '../../shared/http/errors.js';
 import * as telemetryService from '../telemetry/telemetry.service.js';
 import { TelemetryAnchorStatus } from '../telemetry/telemetry.model.js';
+import { AppError } from '../../shared/http/errors.js';
 import { detectAnomaly } from '../anomaly/anomaly.service.js';
 import { emitAnomalyDetected, emitTelemetryUpdate } from '../../infra/socket/io.js';
 import { pushAlertJob, pushStellarAnchorJob } from '../../infra/redis/queue.js';
 import type { IotWebhookBody } from './iot.validation.js';
-import { AppError } from '../../shared/http/errors.js';
-import type { TelemetryUpdatePayload, AnomalyAlertPayload } from '../../shared/types/socketEvents.js';
+import type {
+  AnomalyAlertPayload,
+  TelemetryUpdatePayload,
+} from '../../shared/types/socketEvents.js';
 
-export async function processIotWebhook(body: IotWebhookBody) {
-  let shipmentId = body.shipmentId;
+type NormalizedBody = {
+  sensorId?: string;
+  shipmentId?: string;
+  temperature: number;
+  humidity: number;
+  latitude: number;
+  longitude: number;
+  batteryLevel: number;
+  timestamp: Date;
+  rawPayload: IotWebhookBody;
+};
 
-  if (!shipmentId) {
-    const shipment = await findActiveShipmentBySensorId(body.sensorId);
-    if (!shipment) {
-      throw new AppError(404, `No active shipment found for sensor ${body.sensorId}`, 'SHIPMENT_NOT_FOUND');
-    }
-    shipmentId = shipment._id.toString();
-  }
-
-  const dataHash = generateDataHash(body);
-function normalizeIotWebhookBody(body: IotWebhookBody) {
+function normalizeIotWebhookBody(body: IotWebhookBody): NormalizedBody {
   if ('shipmentId' in body) {
     return {
-      sensorId: undefined,
       shipmentId: body.shipmentId,
       temperature: body.temperature,
       humidity: body.humidity,
@@ -39,10 +39,6 @@ function normalizeIotWebhookBody(body: IotWebhookBody) {
 
   return {
     sensorId: body.sensorId,
-    shipmentId: shipmentId,
-    shipmentId: body.shipmentId,
-    temperature: body.temperature,
-    shipmentId: undefined,
     temperature: body.temp,
     humidity: body.humidity,
     latitude: body.location.lat,
@@ -60,7 +56,11 @@ export async function processIotWebhook(body: IotWebhookBody) {
   if (!shipmentId && normalizedBody.sensorId) {
     const shipment = await telemetryService.findActiveShipmentBySensorId(normalizedBody.sensorId);
     if (!shipment?._id) {
-      throw new AppError(404, `No active shipment found for sensor ${normalizedBody.sensorId}`, 'NOT_FOUND');
+      throw new AppError(
+        404,
+        `No active shipment found for sensor ${normalizedBody.sensorId}`,
+        'NOT_FOUND'
+      );
     }
     shipmentId = shipment._id.toString();
   }
@@ -87,17 +87,14 @@ export async function processIotWebhook(body: IotWebhookBody) {
 
   await pushStellarAnchorJob({
     telemetryId: telemetry._id.toString(),
-    shipmentId: shipmentId,
     shipmentId,
     dataHash,
   });
 
-  emitTelemetryUpdate(shipmentId, telemetry);
-  // Format telemetry payload for socket emission
   const telemetryPayload: TelemetryUpdatePayload = {
     telemetryId: telemetry._id.toString(),
     shipmentId: telemetry.shipmentId.toString(),
-    sensorId: telemetry.sensorId,
+    sensorId: telemetry.sensorId ?? normalizedBody.sensorId ?? shipmentId,
     temperature: telemetry.temperature,
     humidity: telemetry.humidity,
     latitude: telemetry.latitude,
@@ -109,7 +106,7 @@ export async function processIotWebhook(body: IotWebhookBody) {
     ...(telemetry.stellarTxHash && { stellarTxHash: telemetry.stellarTxHash }),
   };
 
-  emitTelemetryUpdate(body.shipmentId, telemetryPayload);
+  emitTelemetryUpdate(shipmentId, telemetryPayload);
 
   setImmediate(async () => {
     const result = await detectAnomaly({
@@ -124,11 +121,15 @@ export async function processIotWebhook(body: IotWebhookBody) {
     if (result.detected) {
       await Promise.all(
         result.anomalies.map(async anomaly => {
-          // Format anomaly payload for socket emission
           const anomalyPayload: AnomalyAlertPayload = {
             anomalyId: anomaly._id,
             shipmentId: anomaly.shipmentId,
-            type: anomaly.type as 'TEMPERATURE_EXCEEDED' | 'TEMPERATURE_BELOW_MIN' | 'HUMIDITY_EXCEEDED' | 'HUMIDITY_BELOW_MIN' | 'BATTERY_LOW',
+            type: anomaly.type as
+              | 'TEMPERATURE_EXCEEDED'
+              | 'TEMPERATURE_BELOW_MIN'
+              | 'HUMIDITY_EXCEEDED'
+              | 'HUMIDITY_BELOW_MIN'
+              | 'BATTERY_LOW',
             severity: anomaly.severity as 'LOW' | 'MEDIUM' | 'HIGH',
             message: anomaly.message,
             timestamp: anomaly.timestamp,

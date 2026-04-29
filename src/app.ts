@@ -28,10 +28,14 @@ export function buildApp() {
   const app = express();
 
   app.use(helmet());
+  // Enable weak ETags globally for client-side caching (Issue #80)
+  app.set('etag', 'weak');
+
   app.use(requestId());
   app.use(corsMiddleware);
   app.options('*', corsPreflight);
-  app.use(express.json());
+  app.use(express.json({ limit: '100kb' }));
+  app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
   if (process.env.NODE_ENV !== 'production') {
     app.use(morgan('dev'));
