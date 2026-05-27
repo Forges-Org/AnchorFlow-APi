@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../shared/http/asyncHandler.js';
 import { validateRequest } from '../../shared/validation/validate.js';
-import { getTelemetry } from './telemetry.controller.js';
-import { TelemetryQuerySchema } from './telemetry.validation.js';
+import { getTelemetry, bulkIngest } from './telemetry.controller.js';
+import { TelemetryQuerySchema, BulkTelemetryBodySchema } from './telemetry.validation.js';
+import { requireAuth } from '../../shared/middleware/requireAuth.js';
 
 export const telemetryRouter = Router();
 
@@ -10,4 +11,11 @@ telemetryRouter.get(
   '/',
   validateRequest({ query: TelemetryQuerySchema }),
   asyncHandler(getTelemetry)
+);
+
+telemetryRouter.post(
+  '/bulk',
+  requireAuth,
+  validateRequest({ body: BulkTelemetryBodySchema }),
+  asyncHandler(bulkIngest)
 );

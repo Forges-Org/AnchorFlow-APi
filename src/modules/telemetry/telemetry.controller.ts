@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
-import { getTelemetryService } from './telemetry.service.js';
+import { getTelemetryService, bulkIngestTelemetry } from './telemetry.service.js';
 import { sendResponse } from '../../shared/http/sendResponse.js';
+import type { BulkTelemetryBody } from './telemetry.validation.js';
 
 export const getTelemetry = async (req: Request, res: Response) => {
   const { cursor, limit = 20, shipmentId } = req.query;
@@ -12,4 +13,12 @@ export const getTelemetry = async (req: Request, res: Response) => {
   });
 
   sendResponse(res, 200, true, 'Telemetry retrieved', data, { nextCursor, hasMore });
+};
+
+export const bulkIngest = async (req: Request, res: Response) => {
+  const body = req.body as BulkTelemetryBody;
+
+  const result = await bulkIngestTelemetry(body.items);
+
+  sendResponse(res, 201, true, 'Bulk telemetry ingested', result);
 };
