@@ -167,5 +167,127 @@ describe('GET /api/analytics/performance', () => {
     expect(res.status).toBe(403);
     expect(String(res.body.message)).toMatch(/forbidden/i);
   });
-});
 
+  // ── UTC timezone parsing tests ────────────────────────────────────────────
+
+  describe('UTC date validation', () => {
+    let adminToken: string;
+
+    beforeEach(() => {
+      const { JWT_SECRET } = process.env;
+      adminToken = jwt.sign({ userId: 'u1', role: 'ADMIN' }, JWT_SECRET!);
+    });
+
+    it('accepts dates with Z suffix (UTC)', async () => {
+      const res = await request(app)
+        .get('/api/analytics/performance')
+        .query({
+          startDate: '2026-01-01T00:00:00.000Z',
+          endDate: '2026-01-31T23:59:59.999Z',
+        })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      // Dates must be echoed back as UTC ISO strings
+      expect(res.body.data.startDate).toBe('2026-01-01T00:00:00.000Z');
+      expect(res.body.data.endDate).toBe('2026-01-31T23:59:59.999Z');
+    });
+
+    it('accepts dates with +00:00 offset (UTC)', async () => {
+      const res = await request(app)
+        .get('/api/analytics/performance')
+        .query({
+          startDate: '2026-01-01T00:00:00+00:00',
+          endDate: '2026-01-31T23:59:59+00:00',
+        })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      // Both +00:00 and Z represent the same UTC instant
+      expect(res.body.data.startDate).toBe('2026-01-01T00:00:00.000Z');
+      expect(res.body.data.endDate).toBe('2026-01-31T23:59:59.000Z');
+    });
+
+    it('rejects a local datetime string without timezone offset', async () => {
+      const res = await request(app)
+        .get('/api/analytics/performance')
+        .query({
+          startDate: '2026-01-01T00:00:00',
+          endDate: '2026-01-31T23:59:59',
+        })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects a non-UTC offset (e.g. +05:30)', async () => {
+      const res = await request(app)
+        .get('/api/analytics/performance')
+        .query({
+          startDate: '2026-01-01T00:00:00+05:30',
+          endDate: '2026-01-31T23:59:59+05:30',
+        })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects a date-only string (no time component)', async () => {
+      const res = await request(app)
+        .get('/api/analytics/performance')
+        .query({
+          startDate: '2026-01-01',
+          endDate: '2026-01-31',
+        })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects missing startDate', async () => {
+      const res = await request(app)
+        .get('/api/analytics/performance')
+        .query({ endDate: '2026-01-31T23:59:59.999Z' })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects missing endDate', async () => {
+      const res = await request(app)
+        .get('/api/analytics/performance')
+        .query({ startDate: '2026-01-01T00:00:00.000Z' })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects startDate > endDate', async () => {
+      const res = await request(app)
+        .get('/api/analytics/performance')
+        .query({
+          startDate: '2026-02-01T00:00:00.000Z',
+          endDate: '2026-01-01T00:00:00.000Z',
+        })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('passes UTC dates to the DB aggregation pipeline unchanged', async () => {
+      const res = await request(app)
+        .get('/api/analytics/performance')
+        .query({
+          startDate: '2026-01-01T00:00:00.000Z',
+          endDate: '2026-01-31T23:59:59.999Z',
+        })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      // The service echoes back the ISO strings it received from the parsed Dates.
+      // If the schema had coerced a local time, the UTC offset would differ.
+      expect(new Date(res.body.data.startDate).toISOString()).toBe('2026-01-01T00:00:00.000Z');
+      expect(new Date(res.body.data.endDate).toISOString()).toBe('2026-01-31T23:59:59.999Z');
+    });
+  });
+});
