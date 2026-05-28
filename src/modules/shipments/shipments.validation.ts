@@ -1,36 +1,11 @@
 import { z } from 'zod';
-import { ShipmentStatus } from './shipments.model.js';
 
-export const ShipmentIdParamSchema = z.object({
-  id: z.string().trim().min(1),
+export const getShipmentsQuerySchema = z.object({
+  status: z.string().optional(),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().min(1).max(100).default(20),
+  origin: z.string().optional(),
+  destination: z.string().optional(),
 });
 
-export const CreateShipmentBodySchema = z.object({
-  trackingNumber: z.string().trim().min(1).optional(),
-  origin: z.string().trim().min(1),
-  destination: z.string().trim().min(1),
-  enterpriseId: z.string().trim().min(1),
-  logisticsId: z.string().trim().min(1),
-  status: z.nativeEnum(ShipmentStatus).optional(),
-  milestones: z.array(z.unknown()).optional(),
-  offChainMetadata: z.record(z.unknown()).optional(),
-});
-
-export const ShipmentPatchBodySchema = z.object({
-  offChainMetadata: z.record(z.unknown()),
-});
-
-export const ShipmentStatusBodySchema = z.object({
-  status: z.nativeEnum(ShipmentStatus),
-});
-
-export const ShipmentProofBodySchema = z.object({
-  recipientSignatureName: z.string().trim().min(1).optional(),
-  notes: z.string().trim().optional(),
-});
-
-export const ShipmentsQuerySchema = z.object({
-  status: z.nativeEnum(ShipmentStatus).optional(),
-  cursor: z.string().trim().optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
-});
+export type GetShipmentsQuery = z.infer<typeof getShipmentsQuerySchema>;

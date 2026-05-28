@@ -28,16 +28,26 @@ export const findShipments = async (
 };
 
 export const getShipmentsService = async (params: {
-  status?: unknown;
-  cursor?: unknown;
+  status?: string;
+  cursor?: string;
   limit: number;
+  origin?: string;
+  destination?: string;
   filters: Record<string, unknown>;
 }): Promise<ShipmentListResult> => {
-  const { status, cursor, limit, filters } = params;
+  const { status, cursor, limit, origin, destination, filters } = params;
   const query: FilterQuery<unknown> = { ...filters };
 
   if (status) query.status = status;
   if (cursor) query._id = { $lt: cursor };
+  if (origin) {
+    const escapedOrigin = origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.origin = { $regex: escapedOrigin, $options: 'i' };
+  }
+  if (destination) {
+    const escapedDestination = destination.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    query.destination = { $regex: escapedDestination, $options: 'i' };
+  }
 
   const shipments = await findShipments(query, limit);
   const hasMore = shipments.length > limit;

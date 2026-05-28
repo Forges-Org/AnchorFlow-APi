@@ -11,6 +11,8 @@ import {
 } from './shipments.controller.js';
 import { requireRole } from '../../shared/middleware/requireRole.js';
 import { requireAuth } from '../../shared/middleware/requireAuth.js';
+import { validate } from '../../shared/validation/validate.js';
+import { getShipmentsQuerySchema } from './shipments.validation.js';
 import multer from 'multer';
 import {
   CreateShipmentBodySchema,
@@ -26,13 +28,7 @@ import { UserRole } from '../../shared/constants/index.js';
 export const shipmentsRouter = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-shipmentsRouter.get(
-  '/',
-  requireAuth,
-  requireRole('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'VIEWER', 'CUSTOMER'),
-  validateRequest({ query: ShipmentsQuerySchema }),
-  asyncHandler(getShipments)
-);
+shipmentsRouter.get('/', validate({ query: getShipmentsQuerySchema }), asyncHandler(getShipments));
 shipmentsRouter.post(
   '/',
   requireAuth,
