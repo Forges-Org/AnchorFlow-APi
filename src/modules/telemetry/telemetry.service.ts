@@ -2,6 +2,13 @@ import { Telemetry, TelemetryAnchorStatus } from './telemetry.model.js';
 import { Shipment } from '../shipments/shipments.model.js';
 import { ShipmentStatus } from '../../shared/types/shipment.js';
 import type { FilterQuery } from 'mongoose';
+import { generateDataHash } from '../../shared/utils/crypto.js';
+import { detectAnomaly } from '../anomaly/anomaly.service.js';
+import { emitAnomalyDetected, emitTelemetryUpdate } from '../../infra/socket/io.js';
+import type { AnomalyAlertPayload, TelemetryUpdatePayload } from '../../shared/types/socketEvents.js';
+import type { BulkTelemetryItem } from './telemetry.validation.js';
+import { AppError } from '../../shared/http/errors.js';
+import { pushStellarAnchorJob, pushAlertJob } from '../../infra/redis/queue.js';
 
 /**
  * Finds the active (IN_TRANSIT) shipment linked to a given sensorId.
@@ -82,4 +89,106 @@ export async function getTelemetryService(params: {
   const nextCursor = hasMore && data.length > 0 ? data[data.length - 1]._id.toString() : null;
 
   return { data, nextCursor, hasMore };
+}
+
+export async function bulkIngestTelemetry(items: BulkTelemetryItem[]) {
+  const createdIds: string[] = [];
+
+  for (const item of items) {
+    let shipmentId = item.shipmentId;
+    if (!shipmentId && item.sensorId) {
+      const shipment = await findActiveShipmentBySensorId(item.sensorId);
+      if (!shipment?._id) {
+        throw new AppError(404, `No active shipment found for sensor ${item.sensorId}`, 'NOT_FOUND');
+      }
+      shipmentId = shipment._id.toString();
+    }
+
+    if (!shipmentId) {
+      throw new AppError(400, 'shipmentId could not be resolved', 'BAD_REQUEST');
+    }
+
+    const dataHash = generateDataHash(item as unknown);
+
+    const telemetry = await createTelemetryRecord({
+      sensorId: item.sensorId,
+      shipmentId,
+      temperature: item.temperature,
+      humidity: item.humidity,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      batteryLevel: item.batteryLevel ?? 100,
+      timestamp: item.timestamp,
+      dataHash,
+      anchorStatus: TelemetryAnchorStatus.PENDING_ANCHOR,
+      rawPayload: item,
+    });
+
+    createdIds.push(telemetry._id.toString());
+
+    await pushStellarAnchorJob({
+      telemetryId: telemetry._id.toString(),
+      shipmentId,
+      dataHash,
+    });
+
+    const telemetryPayload: TelemetryUpdatePayload = {
+      telemetryId: telemetry._id.toString(),
+      shipmentId: telemetry.shipmentId.toString(),
+      sensorId: telemetry.sensorId ?? item.sensorId ?? shipmentId,
+      temperature: telemetry.temperature,
+      humidity: telemetry.humidity,
+      latitude: telemetry.latitude,
+      longitude: telemetry.longitude,
+      batteryLevel: telemetry.batteryLevel,
+      timestamp: telemetry.timestamp.toISOString(),
+      dataHash: telemetry.dataHash,
+      anchorStatus: telemetry.anchorStatus as 'PENDING_ANCHOR' | 'ANCHORED' | 'ANCHOR_FAILED',
+      ...(telemetry.stellarTxHash && { stellarTxHash: telemetry.stellarTxHash }),
+    };
+
+    emitTelemetryUpdate(shipmentId, telemetryPayload);
+
+    setImmediate(async () => {
+      const result = await detectAnomaly({
+        _id: telemetry._id.toString(),
+        shipmentId: telemetry.shipmentId.toString(),
+        temperature: telemetry.temperature,
+        humidity: telemetry.humidity,
+        batteryLevel: telemetry.batteryLevel,
+        timestamp: telemetry.timestamp,
+      });
+
+      if (result.detected) {
+        await Promise.all(
+          result.anomalies.map(async anomaly => {
+            const anomalyPayload: AnomalyAlertPayload = {
+              anomalyId: anomaly._id,
+              shipmentId: anomaly.shipmentId,
+              type: anomaly.type as
+                | 'TEMPERATURE_EXCEEDED'
+                | 'TEMPERATURE_BELOW_MIN'
+                | 'HUMIDITY_EXCEEDED'
+                | 'HUMIDITY_BELOW_MIN'
+                | 'BATTERY_LOW',
+              severity: anomaly.severity as 'LOW' | 'MEDIUM' | 'HIGH',
+              message: anomaly.message,
+              timestamp: anomaly.timestamp,
+              resolved: anomaly.resolved,
+            };
+
+            emitAnomalyDetected(anomaly.shipmentId, anomalyPayload);
+            await pushAlertJob({
+              shipmentId: anomaly.shipmentId,
+              type: anomaly.type,
+              severity: anomaly.severity,
+              message: anomaly.message,
+            });
+          })
+        );
+      }
+    });
+  }
+
+  return { insertedCount: createdIds.length, insertedIds: createdIds };
 }
