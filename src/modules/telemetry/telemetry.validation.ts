@@ -5,3 +5,21 @@ export const TelemetryQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
   shipmentId: z.string().trim().optional(),
 });
+
+const BulkTelemetryItemSchema = z.object({
+  shipmentId: z.string().trim().min(1),
+  temperature: z.number(),
+  humidity: z.number(),
+  latitude: z.number(),
+  longitude: z.number(),
+  batteryLevel: z.number(),
+  timestamp: z.coerce.date(),
+  sensorId: z.string().trim().optional(),
+});
+
+export const BulkTelemetryBodySchema = z.object({
+  items: z.array(BulkTelemetryItemSchema).min(1).max(1000),
+});
+
+export type BulkTelemetryItem = z.infer<typeof BulkTelemetryItemSchema>;
+export type BulkTelemetryBody = z.infer<typeof BulkTelemetryBodySchema>;

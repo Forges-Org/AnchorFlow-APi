@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../shared/http/asyncHandler.js';
+import { validateRequest } from '../../shared/validation/validate.js';
 import {
   getShipments,
   createShipment,

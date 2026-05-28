@@ -12,7 +12,7 @@ export const getAnomalies = async (req: Request, res: Response) => {
     severity: severity as string | undefined,
   });
 
-  sendResponse(res, 200, true, 'Anomalies retrieved', data, { nextCursor, hasMore });
+  sendResponse(res, 200, true, 'Anomalies retrieved', { data, nextCursor, hasMore });
 };
 
 export const resolveAnomaly = async (req: Request, res: Response) => {
