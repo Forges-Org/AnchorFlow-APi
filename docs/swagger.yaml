@@ -718,6 +718,46 @@ paths:
                     properties:
                       count:
                         type: integer
+  /api/telemetry/thresholds:
+    get:
+      tags:
+        - Telemetry
+      summary: Get telemetry alert thresholds
+      description: Returns the system-wide sensor alert boundaries used by the frontend for threshold checks.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Thresholds retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Thresholds retrieved
+                  data:
+                    type: object
+                    properties:
+                      maxTemp:
+                        type: number
+                        example: 85
+                      maxHumidity:
+                        type: number
+                        example: 90
+                      minBatteryLevel:
+                        type: number
+                        example: 20
+        '401':
+          description: Missing or invalid auth token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/telemetry:
     get:
       summary: Get telemetry records
