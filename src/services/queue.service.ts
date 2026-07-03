@@ -12,6 +12,10 @@ const alertQueue = new Queue('alert_queue', {
 
 
 
+
+
+
+
 export type AlertPayload = {
   type: 'ANOMALY' | 'STATUS_CHANGE';
   message: string;
