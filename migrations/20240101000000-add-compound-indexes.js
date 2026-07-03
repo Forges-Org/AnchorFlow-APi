@@ -8,9 +8,6 @@ module.exports = {
     await shipments.createIndex({ logisticsId: 1, createdAt: -1 });
     await shipments.createIndex({ createdAt: -1, _id: -1 });
 
-
-
-    
     const anomalies = db.collection('anomalies');
     await anomalies.createIndex({ shipmentId: 1, timestamp: -1, _id: -1 });
     await anomalies.createIndex({ resolved: 1, timestamp: -1, _id: -1 });
