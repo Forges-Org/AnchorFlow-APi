@@ -7,6 +7,10 @@ import { logger } from '../shared/logger/logger.js';
 async function main() {
   const args = process.argv.slice(2);
 
+
+
+  
+
   if (args.length < 2) {
     logger.error('Usage: npm run generate-api-key <name> <organizationId> [shipmentId]');
     logger.error('Example: npm run generate-api-key "IoT Sensor 1" 507f1f77bcf86cd799439011');
