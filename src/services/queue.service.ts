@@ -9,6 +9,9 @@ const alertQueue = new Queue('alert_queue', {
   connection: getRedisConnection() as unknown as Record<string, unknown>,
 });
 
+
+
+
 export type AlertPayload = {
   type: 'ANOMALY' | 'STATUS_CHANGE';
   message: string;
