@@ -8,6 +8,9 @@ import { ShipmentStatus } from '../shared/types/shipment.js';
 import { connectMongo, disconnectMongo } from '../infra/mongo/connection.js';
 import { env } from '../env.js';
 
+
+
+
 const TelemetrySchema = new Schema(
   {
     shipmentId: { type: Types.ObjectId, ref: 'Shipment', required: true },

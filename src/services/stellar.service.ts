@@ -12,6 +12,9 @@ import { logger } from '../shared/logger/logger.js';
 
 const horizon = new Horizon.Server('https://horizon-testnet.stellar.org');
 
+
+
+
 /**
  * Creates a Stellar manage-data transaction for a shipment and returns token metadata.
  * @param {{trackingNumber: string; origin: string; destination: string; shipmentId: string}} shipmentData - Shipment data used to build the Stellar transaction.
