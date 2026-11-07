@@ -67,6 +67,11 @@ export const healthQuerySchema = z.object({
   message: '`from` must be earlier than or equal to `to`',
 });
 
+export const latestHealthQuerySchema = healthQuerySchema.refine(
+  (value) => Boolean(value.anchorId || value.corridorId),
+  { message: 'anchorId or corridorId is required' }
+);
+
 export const compareHealthQuerySchema = z.object({
   anchorIds: z.string().transform((value) => value.split(',')).pipe(z.array(objectId).min(2).max(10)),
 }).strict();
@@ -117,6 +122,8 @@ export const probeListQuerySchema = z.object({
   status: z.enum(['succeeded', 'failed']).optional(),
 }).strict();
 
+export const latestProbeQuerySchema = z.object({ anchorId: objectId }).strict();
+
 export const recordProbeBodySchema = z.object({
   anchorId: objectId,
   checkedAt: z.coerce.date(),
@@ -134,6 +141,11 @@ export const attestationListQuerySchema = z.object({
   corridorId: objectId.optional(),
   network: z.enum(['testnet', 'mainnet']).optional(),
 }).strict();
+
+export const latestAttestationQuerySchema = attestationListQuerySchema.refine(
+  (value) => Boolean(value.anchorId || value.corridorId),
+  { message: 'anchorId or corridorId is required' }
+);
 
 export const createAttestationBodySchema = z.object({
   anchorId: objectId,
